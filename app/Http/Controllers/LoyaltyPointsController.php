@@ -4,13 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CancelRequest;
 use App\Http\Requests\DepositRequest;
-use App\Mail\LoyaltyPointsReceived;
-use App\Models\LoyaltyAccount;
-use App\Models\LoyaltyPointsTransaction;
+use App\Http\Requests\WithdrawRequest;
 use App\Services\LoyaltyPointsServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class LoyaltyPointsController extends Controller
 {
@@ -64,40 +61,37 @@ class LoyaltyPointsController extends Controller
 
     }
 
-    public function withdraw()
+    public function withdraw(WithdrawRequest $request): JsonResponse
     {
-        $data = $_POST;
+        $data = $request->validated();
 
         Log::info('Withdraw loyalty points transaction input: ' . print_r($data, true));
 
-        $type = $data['account_type'];
-        $id = $data['account_id'];
-        if (($type == 'phone' || $type == 'card' || $type == 'email') && $id != '') {
-            if ($account = LoyaltyAccount::where($type, '=', $id)->first()) {
-                if ($account->active) {
-                    if ($data['points_amount'] <= 0) {
-                        Log::info('Wrong loyalty points amount: ' . $data['points_amount']);
-                        return response()->json(['message' => 'Wrong loyalty points amount'], 400);
-                    }
-                    if ($account->getBalance() < $data['points_amount']) {
-                        Log::info('Insufficient funds: ' . $data['points_amount']);
-                        return response()->json(['message' => 'Insufficient funds'], 400);
-                    }
+        $account = $this->loyaltyPointsService->findAccount($data['account_type'], $data['account_id']);
 
-                    $transaction = LoyaltyPointsTransaction::withdrawLoyaltyPoints($account->id, $data['points_amount'], $data['description']);
-                    Log::info($transaction);
-                    return $transaction;
-                } else {
-                    Log::info('Account is not active: ' . $type . ' ' . $id);
-                    return response()->json(['message' => 'Account is not active'], 400);
-                }
-            } else {
-                Log::info('Account is not found:' . $type . ' ' . $id);
-                return response()->json(['message' => 'Account is not found'], 400);
-            }
-        } else {
-            Log::info('Wrong account parameters');
-            throw new \InvalidArgumentException('Wrong account parameters');
+        if (!$account) {
+            Log::info('Account not found for type: ' . $data['account_type'] . ', id: ' . $data['account_id']);
+            return response()->json(['message' => 'Account is not found'], 400);
         }
+
+        if (!$account->active) {
+            Log::info('Account is not active for type: ' . $data['account_type'] . ', id: ' . $data['account_id']);
+            return response()->json(['message' => 'Account is not active'], 400);
+        }
+
+        if ($data['points_amount'] <= 0) {
+            Log::info('Wrong loyalty points amount: ' . $data['points_amount']);
+            return response()->json(['message' => 'Wrong loyalty points amount'], 400);
+        }
+
+        if ($account->getBalance() < $data['points_amount']) {
+            Log::info('Insufficient funds on account: ' . $data['points_amount']);
+            return response()->json(['message' => 'Insufficient funds on account'], 400);
+        }
+
+        $transaction = $this->loyaltyPointsService->execWithdrawal($account, $data);
+        Log::info($transaction);
+
+        return response()->json($transaction);
     }
 }

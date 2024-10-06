@@ -30,7 +30,7 @@ class LoyaltyPointsService implements LoyaltyPointsServiceInterface
         return LoyaltyAccount::where($type, $id)->first();
     }
 
-    public function execTransaction(LoyaltyAccount $account, array $data)
+    public function execTransaction(LoyaltyAccount $account, array $data): LoyaltyPointsTransaction
     {
         return LoyaltyPointsTransaction::performPaymentLoyaltyPoints(
             $account->id,
@@ -51,5 +51,10 @@ class LoyaltyPointsService implements LoyaltyPointsServiceInterface
             // instead SMS component
             Log::info('You received ' . $transaction->points_amount . '. Your balance: ' . $account->getBalance());
         }
+    }
+
+    public function execWithdrawal(LoyaltyAccount $account, array $data): LoyaltyPointsTransaction
+    {
+        return LoyaltyPointsTransaction::withdrawLoyaltyPoints($account->id, $data['points_amount'], $data['description']);
     }
 }

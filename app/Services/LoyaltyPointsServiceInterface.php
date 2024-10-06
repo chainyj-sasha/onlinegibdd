@@ -13,7 +13,9 @@ interface LoyaltyPointsServiceInterface
 
     public function findAccount(string $type, string $id): LoyaltyAccount;
 
-    public function execTransaction(LoyaltyAccount $account, array $data);
+    public function execTransaction(LoyaltyAccount $account, array $data): LoyaltyPointsTransaction;
 
     public function sendNotifications(LoyaltyAccount $account, LoyaltyPointsTransaction $transaction): void;
+
+    public function execWithdrawal(LoyaltyAccount $account, array $data): LoyaltyPointsTransaction;
 }
