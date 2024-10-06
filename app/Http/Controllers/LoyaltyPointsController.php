@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CancelRequest;
+use App\Http\Requests\DepositRequest;
 use App\Mail\LoyaltyPointsReceived;
 use App\Models\LoyaltyAccount;
 use App\Models\LoyaltyPointsTransaction;
@@ -14,44 +15,36 @@ use Illuminate\Support\Facades\Mail;
 class LoyaltyPointsController extends Controller
 {
     private LoyaltyPointsServiceInterface $loyaltyPointsService;
+
     public function __construct(LoyaltyPointsServiceInterface $loyaltyPointsService)
     {
         $this->loyaltyPointsService = $loyaltyPointsService;
     }
 
-    public function deposit()
+    public function deposit(DepositRequest $request): JsonResponse
     {
-        $data = $_POST;
+        $data = $request->validated();
 
         Log::info('Deposit transaction input: ' . print_r($data, true));
 
-        $type = $data['account_type'];
-        $id = $data['account_id'];
-        if (($type == 'phone' || $type == 'card' || $type == 'email') && $id != '') {
-            if ($account = LoyaltyAccount::where($type, '=', $id)->first()) {
-                if ($account->active) {
-                    $transaction =  LoyaltyPointsTransaction::performPaymentLoyaltyPoints($account->id, $data['loyalty_points_rule'], $data['description'], $data['payment_id'], $data['payment_amount'], $data['payment_time']);
-                    Log::info($transaction);
-                    if ($account->email != '' && $account->email_notification) {
-                        Mail::to($account)->send(new LoyaltyPointsReceived($transaction->points_amount, $account->getBalance()));
-                    }
-                    if ($account->phone != '' && $account->phone_notification) {
-                        // instead SMS component
-                        Log::info('You received' . $transaction->points_amount . 'Your balance' . $account->getBalance());
-                    }
-                    return $transaction;
-                } else {
-                    Log::info('Account is not active');
-                    return response()->json(['message' => 'Account is not active'], 400);
-                }
-            } else {
-                Log::info('Account is not found');
-                return response()->json(['message' => 'Account is not found'], 400);
-            }
-        } else {
-            Log::info('Wrong account parameters');
-            throw new \InvalidArgumentException('Wrong account parameters');
+        $account = $this->loyaltyPointsService->findAccount($data['account_type'], $data['account_id']);
+        if (!$account) {
+            Log::info('Account is not found');
+            return response()->json(['message' => 'Account is not found'], 400);
         }
+
+        if (!$account->active) {
+            Log::info('Account is not active');
+            return response()->json(['message' => 'Account is not active'], 400);
+        }
+
+        $transaction = $this->loyaltyPointsService->execTransaction($account, $data);
+        Log::info($transaction);
+
+        $this->loyaltyPointsService->sendNotifications($account, $transaction);
+
+        return response()->json($transaction);
+
     }
 
     public function cancel(CancelRequest $request): JsonResponse
