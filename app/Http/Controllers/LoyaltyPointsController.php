@@ -5,11 +5,18 @@ namespace App\Http\Controllers;
 use App\Mail\LoyaltyPointsReceived;
 use App\Models\LoyaltyAccount;
 use App\Models\LoyaltyPointsTransaction;
+use App\Services\LoyaltyPointsServiceInterface;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class LoyaltyPointsController extends Controller
 {
+    private LoyaltyPointsServiceInterface $loyaltyPointsService;
+    public function __construct(LoyaltyPointsServiceInterface $loyaltyPointsService)
+    {
+        $this->loyaltyPointsService = $loyaltyPointsService;
+    }
+
     public function deposit()
     {
         $data = $_POST;
