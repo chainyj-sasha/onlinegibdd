@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CancelRequest;
 use App\Mail\LoyaltyPointsReceived;
 use App\Models\LoyaltyAccount;
 use App\Models\LoyaltyPointsTransaction;
 use App\Services\LoyaltyPointsServiceInterface;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -52,23 +54,21 @@ class LoyaltyPointsController extends Controller
         }
     }
 
-    public function cancel()
+    public function cancel(CancelRequest $request): JsonResponse
     {
-        $data = $_POST;
-
+        $data = $request->validated();
         $reason = $data['cancellation_reason'];
 
-        if ($reason == '') {
-            return response()->json(['message' => 'Cancellation reason is not specified'], 400);
-        }
+        $transaction = $this->loyaltyPointsService->findActiveTransaction($data['transaction_id']);
 
-        if ($transaction = LoyaltyPointsTransaction::where('id', '=', $data['transaction_id'])->where('canceled', '=', 0)->first()) {
-            $transaction->canceled = time();
-            $transaction->cancellation_reason = $reason;
-            $transaction->save();
-        } else {
+        if (!$transaction) {
             return response()->json(['message' => 'Transaction is not found'], 400);
         }
+
+        $this->loyaltyPointsService->cancelTransaction($transaction, $reason);
+
+        return response()->json(['message' => 'Transaction canceled successfully']);
+
     }
 
     public function withdraw()
