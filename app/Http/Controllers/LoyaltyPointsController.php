@@ -18,6 +18,13 @@ class LoyaltyPointsController extends Controller
         $this->loyaltyPointsService = $loyaltyPointsService;
     }
 
+    /**
+     * Processes a deposit transaction for an account.
+     *
+     * @param DepositRequest $request The request with validated transaction data.
+     *
+     * @return JsonResponse JSON response with transaction details or error message.
+     */
     public function deposit(DepositRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -44,6 +51,13 @@ class LoyaltyPointsController extends Controller
 
     }
 
+    /**
+     * Cancels an active transaction.
+     *
+     * @param CancelRequest $request The request with validated cancellation data.
+     *
+     * @return JsonResponse JSON response with a success message or an error if the transaction is not found.
+     */
     public function cancel(CancelRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -58,9 +72,15 @@ class LoyaltyPointsController extends Controller
         $this->loyaltyPointsService->cancelTransaction($transaction, $reason);
 
         return response()->json(['message' => 'Transaction canceled successfully']);
-
     }
 
+    /**
+     * Withdrawal of loyalty points from an account.
+     *
+     * @param WithdrawRequest $request The request with validated withdrawal data.
+     *
+     * @return JsonResponse JSON response with transaction details or an error message.
+     */
     public function withdraw(WithdrawRequest $request): JsonResponse
     {
         $data = $request->validated();
